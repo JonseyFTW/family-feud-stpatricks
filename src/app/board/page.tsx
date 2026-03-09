@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useGameState } from '@/lib/gameState';
+import { Suspense, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { useGameState, getGameStore } from '@/lib/gameState';
 import { soundManager } from '@/lib/sounds';
 import AnswerBoard from '@/components/AnswerBoard';
 import ScoreBar from '@/components/ScoreBar';
@@ -9,16 +10,34 @@ import StrikeDisplay from '@/components/StrikeDisplay';
 import FastMoneyBoard from '@/components/FastMoneyBoard';
 import Celebration from '@/components/Celebration';
 
-export default function BoardPage() {
+function BoardContent() {
   const [state] = useGameState();
   const [mounted, setMounted] = useState(false);
   const [prevRevealedCount, setPrevRevealedCount] = useState(0);
   const [prevStrikes, setPrevStrikes] = useState(0);
+  const [sessionError, setSessionError] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+  const sessionCode = searchParams.get('session');
 
   useEffect(() => {
     setMounted(true);
     soundManager?.init();
-  }, []);
+
+    // If a session code is in the URL, join the remote session
+    if (sessionCode) {
+      const store = getGameStore();
+      store.joinSession(sessionCode).then((success) => {
+        if (!success) {
+          setSessionError('Session not found. Check the code and try again.');
+        }
+      });
+
+      return () => {
+        const s = getGameStore();
+        s.stopRemotePolling();
+      };
+    }
+  }, [sessionCode]);
 
   // Sound effects on state changes
   useEffect(() => {
@@ -50,6 +69,22 @@ export default function BoardPage() {
 
   if (!mounted) return null;
 
+  // Session error
+  if (sessionError) {
+    return (
+      <div className="board-container shamrock-bg flex items-center justify-center">
+        <div className="text-center">
+          <span className="text-6xl block mb-4">❌</span>
+          <h2 className="font-display text-3xl text-red-400 mb-4">Connection Failed</h2>
+          <p className="text-white/60 mb-6">{sessionError}</p>
+          <a href="/join" className="inline-block px-6 py-3 bg-gold text-emerald-darker font-display text-lg rounded-xl hover:scale-105 transition-transform">
+            Try Again
+          </a>
+        </div>
+      </div>
+    );
+  }
+
   // Title Screen
   if (state.titleScreen || !state.gameStarted) {
     return (
@@ -78,7 +113,9 @@ export default function BoardPage() {
             <span>🎩</span>
             <span>🌈</span>
           </div>
-          <p className="text-white/30 text-sm mt-8">Waiting for host to start the game...</p>
+          <p className="text-white/30 text-sm mt-8">
+            {sessionCode ? 'Connected! Waiting for host to start the game...' : 'Waiting for host to start the game...'}
+          </p>
         </div>
       </div>
     );
@@ -216,5 +253,13 @@ export default function BoardPage() {
       {/* Bottom decorative bar */}
       <div className="h-2 bg-gradient-to-r from-emerald-dark via-gold to-emerald-dark" />
     </div>
+  );
+}
+
+export default function BoardPage() {
+  return (
+    <Suspense fallback={<div className="board-container shamrock-bg" />}>
+      <BoardContent />
+    </Suspense>
   );
 }
