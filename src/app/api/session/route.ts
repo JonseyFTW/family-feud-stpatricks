@@ -8,7 +8,7 @@ function generateCode(): string {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { state } = body;
+    const { state, questions } = body;
 
     // Generate a unique 4-digit code
     let code = generateCode();
@@ -24,8 +24,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Could not generate unique code' }, { status: 500 });
     }
 
-    // Store state with 4-hour TTL (14400 seconds)
-    await redis.set(`session:${code}`, JSON.stringify(state), { ex: 14400 });
+    // Store state + questions with 4-hour TTL (14400 seconds)
+    await redis.set(`session:${code}`, JSON.stringify({ state, questions }), { ex: 14400 });
 
     return NextResponse.json({ code });
   } catch (error) {

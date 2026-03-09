@@ -145,6 +145,7 @@ export default function LobbyPage() {
                     onClick={() => {
                       const store = getGameStore();
                       store.resetGame();
+                      store.clearSession();
                       localStorage.removeItem('family-feud-questions');
                       localStorage.removeItem('family-feud-state');
                       setShowResetConfirm(false);

@@ -6,6 +6,7 @@ type Listener = (state: GameState) => void;
 
 const CHANNEL_NAME = 'family-feud-sync';
 const STORAGE_KEY = 'family-feud-state';
+const SESSION_KEY = 'family-feud-session';
 
 class GameStore {
   private state: GameState;
@@ -423,16 +424,37 @@ class GameStore {
 
   // ---- Remote Session Sync ----
 
-  async createSession(): Promise<string> {
+  async createSession(questions?: import('./types').Question[]): Promise<string> {
     const response = await fetch('/api/session', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ state: this.state }),
+      body: JSON.stringify({ state: this.state, questions }),
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error);
     this.sessionCode = data.code;
+    // Persist session code so host can reconnect after crash
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(SESSION_KEY, data.code);
+    }
     return data.code;
+  }
+
+  async rejoinSession(code: string): Promise<{ success: boolean; questions?: import('./types').Question[] }> {
+    const response = await fetch(`/api/session/${code}`);
+    if (!response.ok) return { success: false };
+
+    const data = await response.json();
+    this.sessionCode = code;
+    this.isRemoteBoard = false; // Host role, not remote board
+    this.state = data.state;
+    this.notify();
+    this.persist();
+    // Persist session code
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(SESSION_KEY, code);
+    }
+    return { success: true, questions: data.questions };
   }
 
   async joinSession(code: string): Promise<boolean> {
@@ -446,6 +468,29 @@ class GameStore {
     this.notify();
     this.startRemotePolling();
     return true;
+  }
+
+  async pushQuestions(questions: import('./types').Question[]): Promise<void> {
+    if (!this.sessionCode || this.isRemoteBoard) return;
+    fetch(`/api/session/${this.sessionCode}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ state: this.state, questions }),
+    }).catch(err => console.error('Failed to push questions:', err));
+  }
+
+  clearSession() {
+    this.sessionCode = null;
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(SESSION_KEY);
+    }
+  }
+
+  getSavedSessionCode(): string | null {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem(SESSION_KEY);
+    }
+    return null;
   }
 
   private startRemotePolling() {

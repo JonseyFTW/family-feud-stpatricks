@@ -1,6 +1,17 @@
 import { redis } from '@/lib/redis';
 import { NextResponse } from 'next/server';
 
+// Helper to parse session data (handles both old format {state only} and new {state, questions})
+function parseSessionData(data: unknown): { state: unknown; questions?: unknown } {
+  const parsed = typeof data === 'string' ? JSON.parse(data) : data;
+  // New format: { state, questions }
+  if (parsed && typeof parsed === 'object' && 'state' in (parsed as Record<string, unknown>)) {
+    return parsed as { state: unknown; questions?: unknown };
+  }
+  // Old format: state was stored directly
+  return { state: parsed };
+}
+
 export async function GET(
   request: Request,
   { params }: { params: { code: string } }
@@ -13,9 +24,8 @@ export async function GET(
       return NextResponse.json({ error: 'Session not found' }, { status: 404 });
     }
 
-    // data may already be parsed by @upstash/redis
-    const state = typeof data === 'string' ? JSON.parse(data) : data;
-    return NextResponse.json({ state });
+    const { state, questions } = parseSessionData(data);
+    return NextResponse.json({ state, questions });
   } catch (error) {
     console.error('Failed to get session:', error);
     return NextResponse.json({ error: 'Failed to get session' }, { status: 500 });
@@ -29,7 +39,7 @@ export async function PUT(
   try {
     const { code } = params;
     const body = await request.json();
-    const { state } = body;
+    const { state, questions } = body;
 
     // Check session exists
     const existing = await redis.get(`session:${code}`);
@@ -37,8 +47,15 @@ export async function PUT(
       return NextResponse.json({ error: 'Session not found' }, { status: 404 });
     }
 
-    // Update state, refresh TTL to 4 hours
-    await redis.set(`session:${code}`, JSON.stringify(state), { ex: 14400 });
+    // Merge: always update state, only update questions if provided
+    const existingData = parseSessionData(existing);
+    const sessionData = {
+      state,
+      questions: questions !== undefined ? questions : existingData.questions,
+    };
+
+    // Update session, refresh TTL to 4 hours
+    await redis.set(`session:${code}`, JSON.stringify(sessionData), { ex: 14400 });
 
     return NextResponse.json({ success: true });
   } catch (error) {
