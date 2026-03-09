@@ -23,6 +23,7 @@ export default function HostPage() {
   const [showFastMoneySetup, setShowFastMoneySetup] = useState(false);
   const [mounted, setMounted] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const revealP2TimeoutsRef = useRef<NodeJS.Timeout[]>([]);
   const csvInputRef = useRef<HTMLInputElement>(null);
   const [csvImportMessage, setCsvImportMessage] = useState<string | null>(null);
 
@@ -31,6 +32,10 @@ export default function HostPage() {
   const [fmPoints, setFmPoints] = useState('');
   const [fmCurrentIndex, setFmCurrentIndex] = useState(0);
   const [fmDuplicateMsg, setFmDuplicateMsg] = useState<string | null>(null);
+
+  // Remote session state
+  const [sessionCode, setSessionCode] = useState<string | null>(null);
+  const [sessionLoading, setSessionLoading] = useState(false);
 
   // Persist questions to localStorage
   useEffect(() => {
@@ -42,6 +47,9 @@ export default function HostPage() {
   useEffect(() => {
     setMounted(true);
     soundManager?.init();
+    return () => {
+      revealP2TimeoutsRef.current.forEach(clearTimeout);
+    };
   }, []);
 
   // Fast money timer
@@ -150,6 +158,18 @@ export default function HostPage() {
     soundManager?.playFastMoneyReveal();
   }, [store]);
 
+  const handleCreateSession = useCallback(async () => {
+    setSessionLoading(true);
+    try {
+      const code = await store.createSession();
+      setSessionCode(code);
+    } catch (err) {
+      console.error('Failed to create session:', err);
+    } finally {
+      setSessionLoading(false);
+    }
+  }, [store]);
+
   const handleCSVUploadDirect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -199,6 +219,19 @@ export default function HostPage() {
           <span className="font-display text-gold text-sm">HOST PANEL</span>
         </div>
         <div className="flex items-center gap-2 text-xs">
+          {sessionCode ? (
+            <span className="flex items-center gap-1 bg-gold/20 text-gold px-2 py-1 rounded border border-gold/30 font-mono font-bold tracking-wider">
+              📡 {sessionCode}
+            </span>
+          ) : (
+            <button
+              onClick={handleCreateSession}
+              disabled={sessionLoading}
+              className="host-btn-sm bg-gold/20 text-gold hover:bg-gold/30 rounded border border-gold/30"
+            >
+              {sessionLoading ? '...' : '📡 Remote'}
+            </button>
+          )}
           <span className="text-white/40">Rd {state.currentRound}</span>
           <button onClick={() => setShowEditor(true)} className="host-btn-sm bg-white/10 text-white hover:bg-white/20 rounded">
             Edit Qs
@@ -725,7 +758,20 @@ export default function HostPage() {
                 </button>
               ) : (
                 <button
-                  onClick={() => store.startRevealingPlayer2()}
+                  onClick={() => {
+                    // Clear any existing reveal timeouts
+                    revealP2TimeoutsRef.current.forEach(clearTimeout);
+                    revealP2TimeoutsRef.current = [];
+                    // Show P2 column on the board
+                    store.startRevealingPlayer2();
+                    // Reveal each answer sequentially with 5-second gaps
+                    for (let i = 0; i < 5; i++) {
+                      const timeoutId = setTimeout(() => {
+                        handleFmReveal(2, i);
+                      }, i * 5000);
+                      revealP2TimeoutsRef.current.push(timeoutId);
+                    }
+                  }}
                   className="host-btn-blue"
                 >
                   Reveal P2 Answers

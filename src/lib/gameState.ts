@@ -11,6 +11,11 @@ class GameStore {
   private state: GameState;
   private listeners: Set<Listener> = new Set();
   private channel: BroadcastChannel | null = null;
+  private sessionCode: string | null = null;
+  private isRemoteBoard: boolean = false;
+  private pollingInterval: ReturnType<typeof setInterval> | null = null;
+  private pushDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private lastPushTime: number = 0;
 
   constructor() {
     // Try to load from localStorage first
@@ -82,6 +87,31 @@ class GameStore {
     this.notify();
     this.persist();
     this.broadcastState();
+    // If we have a session and we are the host, push state to server
+    if (this.sessionCode && !this.isRemoteBoard) {
+      this.pushStateToServer();
+    }
+  }
+
+  private pushStateToServer() {
+    const now = Date.now();
+    const MIN_INTERVAL = 500; // max 2 pushes per second
+
+    if (this.pushDebounceTimer) {
+      clearTimeout(this.pushDebounceTimer);
+    }
+
+    const timeSinceLastPush = now - this.lastPushTime;
+    const delay = timeSinceLastPush < MIN_INTERVAL ? MIN_INTERVAL - timeSinceLastPush : 0;
+
+    this.pushDebounceTimer = setTimeout(() => {
+      this.lastPushTime = Date.now();
+      fetch(`/api/session/${this.sessionCode}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ state: this.state }),
+      }).catch(err => console.error('Failed to push state:', err));
+    }, delay);
   }
 
   requestSync() {
@@ -389,6 +419,71 @@ class GameStore {
       celebration: true,
       roundPhase: 'idle',
     });
+  }
+
+  // ---- Remote Session Sync ----
+
+  async createSession(): Promise<string> {
+    const response = await fetch('/api/session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ state: this.state }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error);
+    this.sessionCode = data.code;
+    return data.code;
+  }
+
+  async joinSession(code: string): Promise<boolean> {
+    const response = await fetch(`/api/session/${code}`);
+    if (!response.ok) return false;
+
+    const data = await response.json();
+    this.sessionCode = code;
+    this.isRemoteBoard = true;
+    this.state = data.state;
+    this.notify();
+    this.startRemotePolling();
+    return true;
+  }
+
+  private startRemotePolling() {
+    if (this.pollingInterval) clearInterval(this.pollingInterval);
+
+    this.pollingInterval = setInterval(async () => {
+      if (!this.sessionCode) return;
+      try {
+        const response = await fetch(`/api/session/${this.sessionCode}`);
+        if (!response.ok) return;
+        const data = await response.json();
+        const newState = data.state;
+
+        // Only update if state actually changed
+        if (JSON.stringify(newState) !== JSON.stringify(this.state)) {
+          this.state = newState;
+          this.notify();
+          this.persist();
+        }
+      } catch (err) {
+        console.error('Polling error:', err);
+      }
+    }, 1000);
+  }
+
+  stopRemotePolling() {
+    if (this.pollingInterval) {
+      clearInterval(this.pollingInterval);
+      this.pollingInterval = null;
+    }
+  }
+
+  getSessionCode(): string | null {
+    return this.sessionCode;
+  }
+
+  getIsRemoteBoard(): boolean {
+    return this.isRemoteBoard;
   }
 }
 

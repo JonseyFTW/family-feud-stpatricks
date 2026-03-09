@@ -111,13 +111,20 @@ export default function LobbyPage() {
               >
                 Open Display Board
               </button>
+              <button
+                onClick={() => router.push('/join')}
+                className="w-full py-3 bg-emerald/30 text-emerald-light font-bold rounded-xl border-2 border-emerald/30 hover:bg-emerald/50 hover:border-emerald/50 transition-all duration-200"
+              >
+                📡 Join Remote Board
+              </button>
             </div>
           </div>
 
           {/* Instructions */}
           <div className="mt-6 pt-4 border-t border-white/10">
             <p className="text-white/50 text-xs text-center leading-relaxed">
-              Open the Display Board on your TV/projector, then start the game to open the Host Control Panel on your phone or tablet.
+              Open the Display Board on your TV/projector, then start the game.
+              Or use &quot;Join Remote Board&quot; to display on a different device with a session code.
             </p>
           </div>
 
