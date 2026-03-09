@@ -36,6 +36,9 @@ export default function HostPage() {
   // Remote session state
   const [sessionCode, setSessionCode] = useState<string | null>(null);
   const [sessionLoading, setSessionLoading] = useState(false);
+  const [showRejoin, setShowRejoin] = useState(false);
+  const [rejoinCode, setRejoinCode] = useState('');
+  const [rejoinError, setRejoinError] = useState<string | null>(null);
 
   // Persist questions to localStorage
   useEffect(() => {
@@ -44,12 +47,37 @@ export default function HostPage() {
     }
   }, [questions, mounted]);
 
+  // Sync questions to remote session when they change
+  useEffect(() => {
+    if (mounted && sessionCode) {
+      store.pushQuestions(questions);
+    }
+  }, [questions, mounted, sessionCode, store]);
+
   useEffect(() => {
     setMounted(true);
     soundManager?.init();
+
+    // Auto-reconnect to saved session if one exists
+    const savedCode = store.getSavedSessionCode();
+    if (savedCode) {
+      store.rejoinSession(savedCode).then(({ success, questions: savedQuestions }) => {
+        if (success) {
+          setSessionCode(savedCode);
+          if (savedQuestions && Array.isArray(savedQuestions) && savedQuestions.length > 0) {
+            setQuestions(savedQuestions);
+          }
+        } else {
+          // Session expired or invalid, clean up
+          store.clearSession();
+        }
+      });
+    }
+
     return () => {
       revealP2TimeoutsRef.current.forEach(clearTimeout);
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Fast money timer
@@ -161,14 +189,37 @@ export default function HostPage() {
   const handleCreateSession = useCallback(async () => {
     setSessionLoading(true);
     try {
-      const code = await store.createSession();
+      const code = await store.createSession(questions);
       setSessionCode(code);
     } catch (err) {
       console.error('Failed to create session:', err);
     } finally {
       setSessionLoading(false);
     }
-  }, [store]);
+  }, [store, questions]);
+
+  const handleRejoinSession = useCallback(async () => {
+    if (rejoinCode.length !== 4) return;
+    setRejoinError(null);
+    setSessionLoading(true);
+    try {
+      const { success, questions: savedQuestions } = await store.rejoinSession(rejoinCode);
+      if (success) {
+        setSessionCode(rejoinCode);
+        if (savedQuestions && Array.isArray(savedQuestions) && savedQuestions.length > 0) {
+          setQuestions(savedQuestions);
+        }
+        setShowRejoin(false);
+        setRejoinCode('');
+      } else {
+        setRejoinError('Session not found or expired.');
+      }
+    } catch {
+      setRejoinError('Connection error. Try again.');
+    } finally {
+      setSessionLoading(false);
+    }
+  }, [rejoinCode, store]);
 
   const handleCSVUploadDirect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -223,14 +274,43 @@ export default function HostPage() {
             <span className="flex items-center gap-1 bg-gold/20 text-gold px-2 py-1 rounded border border-gold/30 font-mono font-bold tracking-wider">
               📡 {sessionCode}
             </span>
+          ) : showRejoin ? (
+            <div className="flex items-center gap-1">
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={4}
+                value={rejoinCode}
+                onChange={(e) => { setRejoinCode(e.target.value.replace(/\D/g, '').slice(0, 4)); setRejoinError(null); }}
+                onKeyDown={(e) => e.key === 'Enter' && handleRejoinSession()}
+                placeholder="Code"
+                className="w-16 px-2 py-1 bg-black/30 border border-gold/30 rounded text-gold text-center text-xs font-mono focus:outline-none focus:border-gold"
+                autoFocus
+              />
+              <button onClick={handleRejoinSession} disabled={sessionLoading || rejoinCode.length !== 4} className="host-btn-sm bg-gold/20 text-gold hover:bg-gold/30 rounded border border-gold/30 disabled:opacity-40">
+                {sessionLoading ? '...' : 'Join'}
+              </button>
+              <button onClick={() => { setShowRejoin(false); setRejoinCode(''); setRejoinError(null); }} className="host-btn-sm bg-white/10 text-white/50 hover:bg-white/20 rounded">
+                ✕
+              </button>
+            </div>
           ) : (
-            <button
-              onClick={handleCreateSession}
-              disabled={sessionLoading}
-              className="host-btn-sm bg-gold/20 text-gold hover:bg-gold/30 rounded border border-gold/30"
-            >
-              {sessionLoading ? '...' : '📡 Remote'}
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={handleCreateSession}
+                disabled={sessionLoading}
+                className="host-btn-sm bg-gold/20 text-gold hover:bg-gold/30 rounded border border-gold/30"
+              >
+                {sessionLoading ? '...' : '📡 New'}
+              </button>
+              <button
+                onClick={() => setShowRejoin(true)}
+                className="host-btn-sm bg-white/10 text-white/50 hover:bg-white/20 rounded"
+                title="Rejoin existing session"
+              >
+                📡 Rejoin
+              </button>
+            </div>
           )}
           <span className="text-white/40">Rd {state.currentRound}</span>
           <button onClick={() => setShowEditor(true)} className="host-btn-sm bg-white/10 text-white hover:bg-white/20 rounded">
@@ -238,6 +318,9 @@ export default function HostPage() {
           </button>
         </div>
       </div>
+      {rejoinError && (
+        <div className="bg-red-900/50 text-red-300 text-xs text-center py-1 px-3">{rejoinError}</div>
+      )}
 
       <div className="p-3 space-y-3 max-w-lg mx-auto pb-24">
         {/* Scoreboard */}
