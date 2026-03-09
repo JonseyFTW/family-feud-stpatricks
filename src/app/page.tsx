@@ -10,6 +10,7 @@ export default function LobbyPage() {
   const [team2Name, setTeam2Name] = useState('Team Leprechaun');
   const [hostName, setHostName] = useState('');
   const [mounted, setMounted] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -118,6 +119,43 @@ export default function LobbyPage() {
             <p className="text-white/50 text-xs text-center leading-relaxed">
               Open the Display Board on your TV/projector, then start the game to open the Host Control Panel on your phone or tablet.
             </p>
+          </div>
+
+          {/* Reset Game */}
+          <div className="mt-4 pt-4 border-t border-white/10">
+            {!showResetConfirm ? (
+              <button
+                onClick={() => setShowResetConfirm(true)}
+                className="w-full py-2 text-red-400/60 text-xs font-medium hover:text-red-400 transition-colors"
+              >
+                Reset Game Data
+              </button>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-red-400 text-xs text-center font-medium">Clear all game state, scores, and used questions?</p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      const store = getGameStore();
+                      store.resetGame();
+                      localStorage.removeItem('family-feud-questions');
+                      localStorage.removeItem('family-feud-state');
+                      setShowResetConfirm(false);
+                      window.location.reload();
+                    }}
+                    className="flex-1 py-2 bg-red-700/80 text-white text-xs font-bold rounded-lg hover:bg-red-600 transition-colors"
+                  >
+                    Yes, Reset Everything
+                  </button>
+                  <button
+                    onClick={() => setShowResetConfirm(false)}
+                    className="flex-1 py-2 bg-white/10 text-white text-xs font-bold rounded-lg hover:bg-white/20 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

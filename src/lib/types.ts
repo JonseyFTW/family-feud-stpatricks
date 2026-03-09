@@ -32,6 +32,8 @@ export interface FastMoneyState {
   player1Total: number;
   player2Total: number;
   timer: number;
+  p1Timer: number;
+  p2Timer: number;
   timerRunning: boolean;
   revealingPlayer2: boolean;
 }
@@ -71,10 +73,10 @@ export interface GameState {
 export const DEFAULT_FAST_MONEY: FastMoneyState = {
   active: false,
   questions: [
-    "Name something green you'd find in Ireland",
-    "Name a reason to kiss someone",
-    "Name something associated with luck",
-    "Name a famous Irish city",
+    "Name something you'd find in Ireland",
+    "Name something that brings good luck",
+    "Name a word or phrase with \"luck\" in it",
+    "Name a famous Irish person",
     "Name something you'd find at the end of a rainbow"
   ],
   questionData: [],
@@ -84,6 +86,8 @@ export const DEFAULT_FAST_MONEY: FastMoneyState = {
   player1Total: 0,
   player2Total: 0,
   timer: 20,
+  p1Timer: 20,
+  p2Timer: 25,
   timerRunning: false,
   revealingPlayer2: false,
 };

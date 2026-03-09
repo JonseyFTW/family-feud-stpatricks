@@ -541,7 +541,11 @@ export default function HostPage() {
                 <button
                   onClick={() => {
                     store.setFastMoneyTimerRunning(false);
-                    store.setFastMoneyTimer(state.fastMoney.currentPlayer === 1 ? 20 : 25);
+                    store.setFastMoneyTimer(
+                      state.fastMoney.currentPlayer === 1
+                        ? (state.fastMoney.p1Timer || 20)
+                        : (state.fastMoney.p2Timer || 25)
+                    );
                   }}
                   className="host-btn bg-white/10 text-white hover:bg-white/20"
                 >
@@ -833,11 +837,56 @@ export default function HostPage() {
                 </select>
               </div>
             ))}
-            <p className="text-white/40 text-xs">Or type a custom question below any dropdown if needed.</p>
+            {/* Custom Timer */}
+            <div className="space-y-1">
+              <label className="text-gold text-xs font-bold">Timer (seconds)</label>
+              <div className="flex gap-2 items-center">
+                <span className="text-white/50 text-xs">P1:</span>
+                <input
+                  type="number"
+                  defaultValue={20}
+                  min={5}
+                  max={120}
+                  id="fm-timer-p1"
+                  className="w-20 px-3 py-2 bg-black/30 border border-emerald/50 rounded-lg text-gold text-sm text-center focus:outline-none focus:border-gold"
+                />
+                <span className="text-white/50 text-xs ml-2">P2:</span>
+                <input
+                  type="number"
+                  defaultValue={25}
+                  min={5}
+                  max={120}
+                  id="fm-timer-p2"
+                  className="w-20 px-3 py-2 bg-black/30 border border-emerald/50 rounded-lg text-gold text-sm text-center focus:outline-none focus:border-gold"
+                />
+                <span className="text-white/30 text-xs">sec</span>
+              </div>
+            </div>
+
             <div className="flex gap-2">
               <button
                 onClick={() => {
-                  store.startFastMoney();
+                  // Auto-link all question strings to question bank data
+                  const currentQs = state.fastMoney.questions;
+                  const autoLinkedData: (Question | null)[] = currentQs.map((qText, i) => {
+                    // If already linked from dropdown selection, keep it
+                    if (state.fastMoney.questionData?.[i]) return state.fastMoney.questionData[i];
+                    // Try exact match first
+                    const exact = questions.find(q => q.question === qText);
+                    if (exact) return exact;
+                    // Try case-insensitive match
+                    const lower = qText.toLowerCase().trim();
+                    return questions.find(q => q.question.toLowerCase().trim() === lower) || null;
+                  });
+                  store.updateFastMoneyQuestions(currentQs, autoLinkedData as Question[]);
+
+                  // Read custom timer values
+                  const p1Input = document.getElementById('fm-timer-p1') as HTMLInputElement;
+                  const p2Input = document.getElementById('fm-timer-p2') as HTMLInputElement;
+                  const p1Time = parseInt(p1Input?.value) || 20;
+                  const p2Time = parseInt(p2Input?.value) || 25;
+
+                  store.startFastMoney(p1Time, p2Time);
                   setShowFastMoneySetup(false);
                   setFmCurrentIndex(0);
                   setFmDuplicateMsg(null);
