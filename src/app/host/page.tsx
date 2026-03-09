@@ -22,8 +22,10 @@ export default function HostPage() {
   const [showEditor, setShowEditor] = useState(false);
   const [showFastMoneySetup, setShowFastMoneySetup] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [isRevealingAnswers, setIsRevealingAnswers] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const revealP2TimeoutsRef = useRef<NodeJS.Timeout[]>([]);
+  const revealRemainingTimeoutsRef = useRef<NodeJS.Timeout[]>([]);
   const csvInputRef = useRef<HTMLInputElement>(null);
   const [csvImportMessage, setCsvImportMessage] = useState<string | null>(null);
 
@@ -76,6 +78,7 @@ export default function HostPage() {
 
     return () => {
       revealP2TimeoutsRef.current.forEach(clearTimeout);
+      revealRemainingTimeoutsRef.current.forEach(clearTimeout);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -130,9 +133,33 @@ export default function HostPage() {
   }, [store]);
 
   const handleRevealRemaining = useCallback(() => {
-    store.revealRemaining();
-    soundManager?.playRevealFanfare();
-  }, [store]);
+    if (!state.currentQuestion) return;
+    // Clear any existing reveal timeouts
+    revealRemainingTimeoutsRef.current.forEach(clearTimeout);
+    revealRemainingTimeoutsRef.current = [];
+
+    // Find unrevealed answer indices
+    const unrevealed = state.currentQuestion.answers
+      .map((_, i) => i)
+      .filter(i => !state.revealedAnswers.includes(i));
+
+    if (unrevealed.length === 0) return;
+
+    setIsRevealingAnswers(true);
+
+    // Reveal each unrevealed answer one at a time with 4-second gaps
+    unrevealed.forEach((answerIndex, seq) => {
+      const timeoutId = setTimeout(() => {
+        store.revealAnswer(answerIndex);
+        soundManager?.playDing();
+        // After the last one, mark done
+        if (seq === unrevealed.length - 1) {
+          setIsRevealingAnswers(false);
+        }
+      }, seq * 4000);
+      revealRemainingTimeoutsRef.current.push(timeoutId);
+    });
+  }, [store, state.currentQuestion, state.revealedAnswers]);
 
   const handleEndRound = useCallback(() => {
     store.endRound();
@@ -612,8 +639,12 @@ export default function HostPage() {
         {/* ====== REVEAL - Show Remaining ====== */}
         {state.roundPhase === 'reveal' && (
           <div className="space-y-3">
-            <button onClick={handleRevealRemaining} className="host-btn-blue w-full py-4 text-base">
-              Reveal Remaining Answers
+            <button
+              onClick={handleRevealRemaining}
+              disabled={isRevealingAnswers}
+              className={`host-btn-blue w-full py-4 text-base ${isRevealingAnswers ? 'opacity-60 cursor-not-allowed' : ''}`}
+            >
+              {isRevealingAnswers ? 'Revealing Answers...' : 'Reveal Remaining Answers'}
             </button>
             <button onClick={() => {
               store.setCelebration(false);
