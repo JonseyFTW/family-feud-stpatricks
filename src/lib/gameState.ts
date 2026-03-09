@@ -268,6 +268,8 @@ class GameStore {
       fastMoney: {
         ...DEFAULT_FAST_MONEY,
         active: true,
+        questions: this.state.fastMoney.questions,
+        questionData: this.state.fastMoney.questionData || [],
         player1Answers: Array(5).fill(null).map(() => ({ answer: '', points: 0, revealed: false })),
         player2Answers: Array(5).fill(null).map(() => ({ answer: '', points: 0, revealed: false })),
       },
@@ -355,9 +357,12 @@ class GameStore {
     });
   }
 
-  updateFastMoneyQuestions(questions: string[]) {
+  updateFastMoneyQuestions(questions: string[], questionData?: import('./types').Question[]) {
     const fm = { ...this.state.fastMoney };
     fm.questions = questions;
+    if (questionData) {
+      fm.questionData = questionData;
+    }
     this.update({ fastMoney: fm });
   }
 

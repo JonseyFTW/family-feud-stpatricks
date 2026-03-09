@@ -25,6 +25,7 @@ export interface FastMoneyAnswer {
 export interface FastMoneyState {
   active: boolean;
   questions: string[];
+  questionData: Question[];
   player1Answers: FastMoneyAnswer[];
   player2Answers: FastMoneyAnswer[];
   currentPlayer: 1 | 2;
@@ -76,6 +77,7 @@ export const DEFAULT_FAST_MONEY: FastMoneyState = {
     "Name a famous Irish city",
     "Name something you'd find at the end of a rainbow"
   ],
+  questionData: [],
   player1Answers: Array(5).fill({ answer: '', points: 0, revealed: false }),
   player2Answers: Array(5).fill({ answer: '', points: 0, revealed: false }),
   currentPlayer: 1,

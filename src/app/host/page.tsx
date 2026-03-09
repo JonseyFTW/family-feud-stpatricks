@@ -30,6 +30,7 @@ export default function HostPage() {
   const [fmAnswer, setFmAnswer] = useState('');
   const [fmPoints, setFmPoints] = useState('');
   const [fmCurrentIndex, setFmCurrentIndex] = useState(0);
+  const [fmDuplicateMsg, setFmDuplicateMsg] = useState<string | null>(null);
 
   // Persist questions to localStorage
   useEffect(() => {
@@ -105,13 +106,37 @@ export default function HostPage() {
   const handleFmSubmitAnswer = useCallback(() => {
     if (!fmAnswer.trim()) return;
     const player = state.fastMoney.currentPlayer;
-    store.setFastMoneyAnswer(player, fmCurrentIndex, fmAnswer, parseInt(fmPoints) || 0);
+
+    // Auto-detect duplicate for Player 2
+    if (player === 2) {
+      const p1Answer = state.fastMoney.player1Answers[fmCurrentIndex]?.answer;
+      if (p1Answer && p1Answer.toLowerCase().trim() === fmAnswer.toLowerCase().trim()) {
+        setFmDuplicateMsg(`Duplicate! Player 1 already said "${p1Answer}" for this question. Enter a different answer.`);
+        setFmAnswer('');
+        return;
+      }
+    }
+
+    // Auto-match points from question data
+    let points = parseInt(fmPoints) || 0;
+    if (!fmPoints && state.fastMoney.questionData[fmCurrentIndex]) {
+      const qData = state.fastMoney.questionData[fmCurrentIndex];
+      const match = qData.answers.find(
+        a => a.text.toLowerCase().trim() === fmAnswer.toLowerCase().trim()
+      );
+      if (match) {
+        points = match.points;
+      }
+    }
+
+    store.setFastMoneyAnswer(player, fmCurrentIndex, fmAnswer, points);
     setFmAnswer('');
     setFmPoints('');
+    setFmDuplicateMsg(null);
     if (fmCurrentIndex < 4) {
       setFmCurrentIndex(fmCurrentIndex + 1);
     }
-  }, [fmAnswer, fmPoints, fmCurrentIndex, state.fastMoney.currentPlayer, store]);
+  }, [fmAnswer, fmPoints, fmCurrentIndex, state.fastMoney.currentPlayer, state.fastMoney.player1Answers, state.fastMoney.questionData, store]);
 
   const handleFmReveal = useCallback((player: 1 | 2, index: number) => {
     store.revealFastMoneyAnswer(player, index);
@@ -427,6 +452,29 @@ export default function HostPage() {
               </p>
             </div>
 
+            {/* Show answers so host can reveal correct steal answer */}
+            {currentQ && (
+              <div className="space-y-1.5">
+                <h4 className="text-white/50 text-xs uppercase">Reveal Answer (if steal is correct)</h4>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {currentQ.answers.map((ans, i) => (
+                    <button
+                      key={i}
+                      onClick={() => handleRevealAnswer(i)}
+                      disabled={state.revealedAnswers.includes(i)}
+                      className={`text-left p-2 rounded-lg text-xs transition-all ${
+                        state.revealedAnswers.includes(i)
+                          ? 'bg-emerald/30 border border-emerald/50 text-emerald-light'
+                          : 'bg-black/20 border border-white/10 text-white hover:border-gold/50 active:scale-95'
+                      }`}
+                    >
+                      <span className="text-gold/70">#{i + 1}</span> {ans.text} ({ans.points})
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-3">
               <button onClick={handleStealSuccessful} className="host-btn-gold py-5 text-base">
                 Steal Successful!
@@ -507,11 +555,34 @@ export default function HostPage() {
               <div className="text-xs text-white/50">
                 Q{fmCurrentIndex + 1}: {state.fastMoney.questions[fmCurrentIndex]}
               </div>
+
+              {/* Duplicate warning */}
+              {fmDuplicateMsg && (
+                <div className="p-2 rounded-lg text-xs font-medium text-center bg-red-900/50 text-red-300 border border-red-500/30">
+                  {fmDuplicateMsg}
+                </div>
+              )}
+
               <div className="flex gap-2">
                 <input
                   type="text"
                   value={fmAnswer}
-                  onChange={(e) => setFmAnswer(e.target.value)}
+                  onChange={(e) => {
+                    setFmAnswer(e.target.value);
+                    setFmDuplicateMsg(null);
+                    // Auto-match points from question data as they type
+                    if (state.fastMoney.questionData[fmCurrentIndex] && e.target.value.trim()) {
+                      const qData = state.fastMoney.questionData[fmCurrentIndex];
+                      const match = qData.answers.find(
+                        a => a.text.toLowerCase().trim() === e.target.value.toLowerCase().trim()
+                      );
+                      if (match) {
+                        setFmPoints(String(match.points));
+                      } else {
+                        setFmPoints('');
+                      }
+                    }
+                  }}
                   placeholder="Answer..."
                   className="flex-1 px-3 py-2 bg-black/30 border border-emerald/50 rounded-lg text-white text-sm focus:outline-none focus:border-gold"
                   onKeyDown={(e) => e.key === 'Enter' && handleFmSubmitAnswer()}
@@ -529,12 +600,19 @@ export default function HostPage() {
                 </button>
               </div>
 
+              {/* Show available answers hint if question data exists */}
+              {state.fastMoney.questionData[fmCurrentIndex] && (
+                <div className="text-[10px] text-white/30">
+                  Answers: {state.fastMoney.questionData[fmCurrentIndex].answers.map(a => a.text).join(', ')}
+                </div>
+              )}
+
               {/* Question Quick Select */}
               <div className="flex gap-1">
                 {[0, 1, 2, 3, 4].map(i => (
                   <button
                     key={i}
-                    onClick={() => setFmCurrentIndex(i)}
+                    onClick={() => { setFmCurrentIndex(i); setFmDuplicateMsg(null); }}
                     className={`flex-1 py-1 rounded text-xs font-bold transition-all ${
                       fmCurrentIndex === i ? 'bg-gold text-emerald-darker' : 'bg-white/10 text-white hover:bg-white/20'
                     }`}
@@ -566,13 +644,10 @@ export default function HostPage() {
                   >
                     {a.revealed ? 'Done' : 'Reveal'}
                   </button>
-                  {state.fastMoney.currentPlayer === 2 && !a.duplicate && a.answer && (
-                    <button
-                      onClick={() => store.markFastMoneyDuplicate(i)}
-                      className="text-xs px-2 py-0.5 rounded bg-red-800 text-white hover:bg-red-700"
-                    >
-                      Dup
-                    </button>
+                  {a.duplicate && (
+                    <span className="text-xs px-2 py-0.5 rounded bg-red-900/50 text-red-300">
+                      DUP
+                    </span>
                   )}
                 </div>
               ))}
@@ -725,30 +800,47 @@ export default function HostPage() {
 
       {/* Fast Money Setup Modal */}
       {showFastMoneySetup && (
-        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
-          <div className="bg-emerald-darker border-2 border-gold/30 rounded-2xl w-full max-w-md p-6 space-y-4">
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-emerald-darker border-2 border-gold/30 rounded-2xl w-full max-w-lg p-6 space-y-4 my-4">
             <h3 className="font-display text-xl text-gold">Fast Money Setup</h3>
-            <p className="text-white/60 text-sm">Edit the 5 fast money questions:</p>
+            <p className="text-white/60 text-sm">Select 5 questions from your question bank. Answers and points will auto-populate when players respond.</p>
             {state.fastMoney.questions.map((q, i) => (
-              <input
-                key={i}
-                type="text"
-                defaultValue={q}
-                onChange={(e) => {
-                  const newQs = [...state.fastMoney.questions];
-                  newQs[i] = e.target.value;
-                  store.updateFastMoneyQuestions(newQs);
-                }}
-                className="w-full px-3 py-2 bg-black/30 border border-emerald/50 rounded-lg text-white text-sm focus:outline-none focus:border-gold"
-                placeholder={`Question ${i + 1}...`}
-              />
+              <div key={i} className="space-y-1">
+                <label className="text-gold text-xs font-bold">Q{i + 1}</label>
+                <select
+                  value={q}
+                  onChange={(e) => {
+                    const newQs = [...state.fastMoney.questions];
+                    newQs[i] = e.target.value;
+                    const selectedQ = questions.find(question => question.question === e.target.value);
+                    const newQData = [...(state.fastMoney.questionData || [])];
+                    // Ensure array is long enough
+                    while (newQData.length <= i) newQData.push(null as unknown as Question);
+                    newQData[i] = selectedQ || null as unknown as Question;
+                    store.updateFastMoneyQuestions(newQs, newQData);
+                  }}
+                  className="w-full px-3 py-2 bg-black/30 border border-emerald/50 rounded-lg text-white text-sm focus:outline-none focus:border-gold"
+                >
+                  <option value={q}>{q}</option>
+                  {questions
+                    .filter(question => !state.fastMoney.questions.includes(question.question) || question.question === q)
+                    .map(question => (
+                      <option key={question.id} value={question.question}>
+                        {question.question} ({question.answers.length} answers)
+                      </option>
+                    ))
+                  }
+                </select>
+              </div>
             ))}
+            <p className="text-white/40 text-xs">Or type a custom question below any dropdown if needed.</p>
             <div className="flex gap-2">
               <button
                 onClick={() => {
                   store.startFastMoney();
                   setShowFastMoneySetup(false);
                   setFmCurrentIndex(0);
+                  setFmDuplicateMsg(null);
                 }}
                 className="host-btn-gold flex-1"
               >
