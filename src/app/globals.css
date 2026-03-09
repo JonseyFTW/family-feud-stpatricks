@@ -1,0 +1,176 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Bungee&family=Bowlby+One+SC&family=Inter:wght@400;500;600;700;800&display=swap');
+
+:root {
+  --emerald: #009A44;
+  --emerald-dark: #006B3C;
+  --gold: #FFD700;
+  --feud-blue: #1a237e;
+  --feud-darkblue: #0d1442;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  overflow-x: hidden;
+}
+
+/* Shamrock pattern background */
+.shamrock-bg {
+  background-color: #004D2C;
+  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23006B3C' fill-opacity='0.3'%3E%3Cpath d='M30 20c-2.5-4-8-6-8-11s4-9 8-9 8 4 8 9-5.5 7-8 11zm-10 10c4-2.5 6-8 11-8s9 4 9 8-4 8-9 8-7-5.5-11-8zm10 10c2.5 4 8 6 8 11s-4 9-8 9-8-4-8-9 5.5-7 8-11zm10-10c-4 2.5-6 8-11 8s-9-4-9-8 4-8 9-8 7 5.5 11 8z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+}
+
+/* Board styling */
+.board-gradient {
+  background: linear-gradient(180deg, #1a3a6e 0%, #0d2247 50%, #091833 100%);
+}
+
+/* Answer card flip */
+.flip-card {
+  perspective: 1000px;
+}
+
+.flip-card-inner {
+  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  transform-style: preserve-3d;
+}
+
+.flip-card-inner.flipped {
+  transform: rotateX(180deg);
+}
+
+.flip-card-front,
+.flip-card-back {
+  backface-visibility: hidden;
+}
+
+.flip-card-back {
+  transform: rotateX(180deg);
+}
+
+/* Strike X animation */
+.strike-x {
+  animation: strikeSlam 0.4s ease-out forwards;
+}
+
+@keyframes strikeSlam {
+  0% {
+    transform: scale(4) rotate(-20deg);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.1) rotate(5deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+/* Score flash */
+.score-flash {
+  animation: scoreCount 0.5s ease-out;
+}
+
+/* Confetti */
+.confetti-piece {
+  position: fixed;
+  width: 10px;
+  height: 10px;
+  top: -10px;
+  animation: confettiDrop var(--duration) linear var(--delay) forwards;
+}
+
+@keyframes confettiDrop {
+  0% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(100vh) rotate(720deg);
+    opacity: 0;
+  }
+}
+
+/* Gold shimmer effect */
+.gold-shimmer {
+  background: linear-gradient(
+    90deg,
+    #FFD700 0%,
+    #FFF4B0 25%,
+    #FFD700 50%,
+    #FFF4B0 75%,
+    #FFD700 100%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: rainbow 3s linear infinite;
+}
+
+/* Glow text */
+.text-glow {
+  text-shadow: 0 0 10px rgba(255, 215, 0, 0.5), 0 0 20px rgba(255, 215, 0, 0.3);
+}
+
+.text-glow-green {
+  text-shadow: 0 0 10px rgba(0, 154, 68, 0.5), 0 0 20px rgba(0, 154, 68, 0.3);
+}
+
+/* Host panel button styles */
+.host-btn {
+  @apply px-4 py-3 rounded-lg font-bold text-sm transition-all duration-200 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed;
+}
+
+.host-btn-primary {
+  @apply host-btn bg-emerald text-white hover:bg-emerald-light shadow-lg;
+}
+
+.host-btn-danger {
+  @apply host-btn bg-red-600 text-white hover:bg-red-500 shadow-lg;
+}
+
+.host-btn-gold {
+  @apply host-btn bg-gold text-emerald-darker hover:bg-gold-light shadow-lg;
+}
+
+.host-btn-blue {
+  @apply host-btn bg-feud-blue text-white hover:bg-blue-700 shadow-lg;
+}
+
+.host-btn-sm {
+  @apply px-3 py-2 text-xs;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 154, 68, 0.5);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 154, 68, 0.8);
+}
+
+/* Board fullscreen */
+.board-container {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
