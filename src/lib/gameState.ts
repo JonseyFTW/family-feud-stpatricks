@@ -262,7 +262,7 @@ class GameStore {
 
   // ---- Fast Money ----
 
-  startFastMoney() {
+  startFastMoney(p1Timer = 20, p2Timer = 25) {
     this.update({
       roundPhase: 'fastmoney',
       fastMoney: {
@@ -272,6 +272,9 @@ class GameStore {
         questionData: this.state.fastMoney.questionData || [],
         player1Answers: Array(5).fill(null).map(() => ({ answer: '', points: 0, revealed: false })),
         player2Answers: Array(5).fill(null).map(() => ({ answer: '', points: 0, revealed: false })),
+        timer: p1Timer,
+        p1Timer,
+        p2Timer,
       },
       celebration: false,
     });
@@ -327,7 +330,7 @@ class GameStore {
   switchToPlayer2() {
     const fm = { ...this.state.fastMoney };
     fm.currentPlayer = 2;
-    fm.timer = 25;
+    fm.timer = fm.p2Timer || 25;
     this.update({ fastMoney: fm });
   }
 
