@@ -103,19 +103,32 @@ export default function HostPage() {
     soundManager?.playApplause();
   }, [store]);
 
-  const handleFmSubmitAnswer = useCallback(() => {
-    if (!fmAnswer.trim()) return;
+  // Direct submit with explicit answer/points (used by clickable chips)
+  const submitFmAnswer = useCallback((answerText: string, pts: number) => {
+    if (!answerText.trim()) return;
     const player = state.fastMoney.currentPlayer;
 
     // Auto-detect duplicate for Player 2
     if (player === 2) {
       const p1Answer = state.fastMoney.player1Answers[fmCurrentIndex]?.answer;
-      if (p1Answer && p1Answer.toLowerCase().trim() === fmAnswer.toLowerCase().trim()) {
+      if (p1Answer && p1Answer.toLowerCase().trim() === answerText.toLowerCase().trim()) {
         setFmDuplicateMsg(`Duplicate! Player 1 already said "${p1Answer}" for this question. Enter a different answer.`);
-        setFmAnswer('');
-        return;
+        return false;
       }
     }
+
+    store.setFastMoneyAnswer(player, fmCurrentIndex, answerText, pts);
+    setFmAnswer('');
+    setFmPoints('');
+    setFmDuplicateMsg(null);
+    if (fmCurrentIndex < 4) {
+      setFmCurrentIndex(fmCurrentIndex + 1);
+    }
+    return true;
+  }, [fmCurrentIndex, state.fastMoney.currentPlayer, state.fastMoney.player1Answers, store]);
+
+  const handleFmSubmitAnswer = useCallback(() => {
+    if (!fmAnswer.trim()) return;
 
     // Auto-match points from question data
     let points = parseInt(fmPoints) || 0;
@@ -129,14 +142,8 @@ export default function HostPage() {
       }
     }
 
-    store.setFastMoneyAnswer(player, fmCurrentIndex, fmAnswer, points);
-    setFmAnswer('');
-    setFmPoints('');
-    setFmDuplicateMsg(null);
-    if (fmCurrentIndex < 4) {
-      setFmCurrentIndex(fmCurrentIndex + 1);
-    }
-  }, [fmAnswer, fmPoints, fmCurrentIndex, state.fastMoney.currentPlayer, state.fastMoney.player1Answers, state.fastMoney.questionData, store]);
+    submitFmAnswer(fmAnswer, points);
+  }, [fmAnswer, fmPoints, fmCurrentIndex, state.fastMoney.questionData, submitFmAnswer]);
 
   const handleFmReveal = useCallback((player: 1 | 2, index: number) => {
     store.revealFastMoneyAnswer(player, index);
@@ -604,10 +611,31 @@ export default function HostPage() {
                 </button>
               </div>
 
-              {/* Show available answers hint if question data exists */}
+              {/* Clickable answer chips from question data */}
               {state.fastMoney.questionData[fmCurrentIndex] && (
-                <div className="text-[10px] text-white/30">
-                  Answers: {state.fastMoney.questionData[fmCurrentIndex].answers.map(a => a.text).join(', ')}
+                <div className="flex flex-wrap gap-1">
+                  {state.fastMoney.questionData[fmCurrentIndex].answers.map((a, ai) => {
+                    const currentPlayerAnswers = state.fastMoney.currentPlayer === 1
+                      ? state.fastMoney.player1Answers
+                      : state.fastMoney.player2Answers;
+                    const alreadyUsed = currentPlayerAnswers.some(
+                      pa => pa.answer && pa.answer.toLowerCase().trim() === a.text.toLowerCase().trim()
+                    );
+                    return (
+                      <button
+                        key={ai}
+                        disabled={alreadyUsed}
+                        onClick={() => submitFmAnswer(a.text, a.points)}
+                        className={`px-2 py-1 rounded-full text-[10px] font-medium transition-all ${
+                          alreadyUsed
+                            ? 'bg-white/5 text-white/20 cursor-not-allowed line-through'
+                            : 'bg-white/10 text-white/70 hover:bg-gold/30 hover:text-white active:scale-95'
+                        }`}
+                      >
+                        {a.text} ({a.points})
+                      </button>
+                    );
+                  })}
                 </div>
               )}
 
