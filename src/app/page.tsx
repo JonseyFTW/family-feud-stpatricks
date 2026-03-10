@@ -11,10 +11,44 @@ export default function LobbyPage() {
   const [hostName, setHostName] = useState('');
   const [mounted, setMounted] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [rejoinCode, setRejoinCode] = useState('');
+  const [rejoinError, setRejoinError] = useState('');
+  const [isRejoining, setIsRejoining] = useState(false);
 
   useEffect(() => {
     setMounted(true);
+    // Pre-fill with saved session code if one exists
+    const saved = getGameStore().getSavedSessionCode();
+    if (saved) {
+      setRejoinCode(saved);
+    }
   }, []);
+
+  const handleRejoinSession = async () => {
+    const code = rejoinCode.trim();
+    if (code.length !== 4) {
+      setRejoinError('Please enter a 4-digit session code');
+      return;
+    }
+    setIsRejoining(true);
+    setRejoinError('');
+    try {
+      const store = getGameStore();
+      const { success, questions } = await store.rejoinSession(code);
+      if (success) {
+        if (questions && Array.isArray(questions) && questions.length > 0) {
+          localStorage.setItem('family-feud-questions', JSON.stringify(questions));
+        }
+        router.push('/host');
+      } else {
+        setRejoinError('Session not found or expired');
+      }
+    } catch {
+      setRejoinError('Failed to connect to session');
+    } finally {
+      setIsRejoining(false);
+    }
+  };
 
   const handleStartGame = () => {
     const store = getGameStore();
@@ -120,8 +154,41 @@ export default function LobbyPage() {
             </div>
           </div>
 
-          {/* Instructions */}
+          {/* Rejoin Session */}
           <div className="mt-6 pt-4 border-t border-white/10">
+            <label className="block text-gold font-bold text-xs mb-2 uppercase tracking-wider text-center">
+              📡 Rejoin Existing Session
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={rejoinCode}
+                onChange={(e) => {
+                  setRejoinCode(e.target.value.replace(/\D/g, '').slice(0, 4));
+                  setRejoinError('');
+                }}
+                placeholder="4-digit code"
+                maxLength={4}
+                className="flex-1 px-4 py-3 bg-black/30 border-2 border-emerald/50 rounded-xl text-white text-center text-lg font-mono tracking-[0.3em] placeholder-white/40 focus:outline-none focus:border-gold focus:ring-2 focus:ring-gold/30 transition-all"
+              />
+              <button
+                onClick={handleRejoinSession}
+                disabled={isRejoining || rejoinCode.length !== 4}
+                className="px-6 py-3 bg-gold/80 text-emerald-darker font-bold rounded-xl hover:bg-gold transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {isRejoining ? '...' : 'Rejoin'}
+              </button>
+            </div>
+            {rejoinError && (
+              <p className="text-red-400 text-xs text-center mt-2">{rejoinError}</p>
+            )}
+            <p className="text-white/40 text-xs text-center mt-2">
+              Enter the session code to reconnect as host
+            </p>
+          </div>
+
+          {/* Instructions */}
+          <div className="mt-4 pt-4 border-t border-white/10">
             <p className="text-white/50 text-xs text-center leading-relaxed">
               Open the Display Board on your TV/projector, then start the game.
               Or use &quot;Join Remote Board&quot; to display on a different device with a session code.
