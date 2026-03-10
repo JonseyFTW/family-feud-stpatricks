@@ -13,8 +13,7 @@ import Celebration from '@/components/Celebration';
 function BoardContent() {
   const [state] = useGameState();
   const [mounted, setMounted] = useState(false);
-  const [prevRevealedCount, setPrevRevealedCount] = useState(0);
-  const [prevStrikes, setPrevStrikes] = useState(0);
+  const [lastSoundTimestamp, setLastSoundTimestamp] = useState(0);
   const [sessionError, setSessionError] = useState<string | null>(null);
   const searchParams = useSearchParams();
   const sessionCode = searchParams.get('session');
@@ -39,33 +38,27 @@ function BoardContent() {
     }
   }, [sessionCode]);
 
-  // Sound effects on state changes
+  // Play sounds from host commands
   useEffect(() => {
-    if (!mounted) return;
+    if (!mounted || !state.soundCommand) return;
+    if (state.soundCommand.timestamp <= lastSoundTimestamp) return;
 
-    // New answer revealed
-    if (state.revealedAnswers.length > prevRevealedCount) {
-      soundManager?.playDing();
-    }
-    setPrevRevealedCount(state.revealedAnswers.length);
-  }, [state.revealedAnswers.length, prevRevealedCount, mounted]);
+    setLastSoundTimestamp(state.soundCommand.timestamp);
 
-  useEffect(() => {
-    if (!mounted) return;
+    const soundMap: Record<string, () => void> = {
+      ding: () => soundManager?.playDing(),
+      buzzer: () => soundManager?.playBuzzer(),
+      applause: () => soundManager?.playApplause(),
+      intro: () => soundManager?.playThemeIntro(),
+      revealFanfare: () => soundManager?.playRevealFanfare(),
+      celebration: () => soundManager?.playCelebration(),
+      fastMoneyReveal: () => soundManager?.playFastMoneyReveal(),
+      timerTick: () => soundManager?.playTimerTick(),
+    };
 
-    // Strike added
-    if (state.strikes > prevStrikes && state.strikes > 0) {
-      soundManager?.playBuzzer();
-    }
-    setPrevStrikes(state.strikes);
-  }, [state.strikes, prevStrikes, mounted]);
-
-  useEffect(() => {
-    if (!mounted) return;
-    if (state.celebration) {
-      soundManager?.playCelebration();
-    }
-  }, [state.celebration, mounted]);
+    const play = soundMap[state.soundCommand.sound];
+    if (play) play();
+  }, [state.soundCommand, lastSoundTimestamp, mounted]);
 
   if (!mounted) return null;
 
