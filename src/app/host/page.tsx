@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useGameState } from '@/lib/gameState';
 import { DEFAULT_QUESTIONS } from '@/lib/questions';
 import { Question } from '@/lib/types';
-import { soundManager } from '@/lib/sounds';
 import { parseCSVQuestions } from '@/lib/csvParser';
 import QuestionEditor from '@/components/QuestionEditor';
 
@@ -58,7 +57,6 @@ export default function HostPage() {
 
   useEffect(() => {
     setMounted(true);
-    soundManager?.init();
 
     // Auto-reconnect to saved session if one exists
     const savedCode = store.getSavedSessionCode();
@@ -90,11 +88,11 @@ export default function HostPage() {
         const newTime = state.fastMoney.timer - 1;
         store.setFastMoneyTimer(newTime);
         if (newTime <= 5) {
-          soundManager?.playTimerTick();
+          store.playSound('timerTick');
         }
         if (newTime <= 0) {
           store.setFastMoneyTimerRunning(false);
-          soundManager?.playBuzzer();
+          store.playSound('buzzer');
         }
       }, 1000);
     }
@@ -113,23 +111,23 @@ export default function HostPage() {
 
   const handleRevealAnswer = useCallback((index: number) => {
     store.revealAnswer(index);
-    soundManager?.playDing();
+    store.playSound('ding');
   }, [store]);
 
   const handleStrike = useCallback(() => {
     store.addStrike();
-    soundManager?.playBuzzer();
+    store.playSound('buzzer');
   }, [store]);
 
   const handleStealSuccessful = useCallback(() => {
     store.stealSuccessful();
-    soundManager?.playRevealFanfare();
-    soundManager?.playApplause();
+    store.playSound('revealFanfare');
+    setTimeout(() => store.playSound('applause'), 500);
   }, [store]);
 
   const handleStealFailed = useCallback(() => {
     store.stealFailed();
-    soundManager?.playBuzzer();
+    store.playSound('buzzer');
   }, [store]);
 
   const handleRevealRemaining = useCallback(() => {
@@ -151,7 +149,7 @@ export default function HostPage() {
     unrevealed.forEach((answerIndex, seq) => {
       const timeoutId = setTimeout(() => {
         store.revealAnswer(answerIndex);
-        soundManager?.playDing();
+        store.playSound('ding');
         // After the last one, mark done
         if (seq === unrevealed.length - 1) {
           setIsRevealingAnswers(false);
@@ -163,7 +161,7 @@ export default function HostPage() {
 
   const handleEndRound = useCallback(() => {
     store.endRound();
-    soundManager?.playApplause();
+    store.playSound('applause');
   }, [store]);
 
   // Direct submit with explicit answer/points (used by clickable chips)
@@ -210,7 +208,7 @@ export default function HostPage() {
 
   const handleFmReveal = useCallback((player: 1 | 2, index: number) => {
     store.revealFastMoneyAnswer(player, index);
-    soundManager?.playFastMoneyReveal();
+    store.playSound('fastMoneyReveal');
   }, [store]);
 
   const handleCreateSession = useCallback(async () => {
@@ -464,7 +462,7 @@ export default function HostPage() {
                 Fast Money
               </button>
               <button
-                onClick={() => store.endGame()}
+                onClick={() => { store.endGame(); store.playSound('celebration'); }}
                 className="host-btn-danger"
               >
                 End Game
@@ -896,9 +894,9 @@ export default function HostPage() {
                   store.endFastMoney();
                   const total = state.fastMoney.player1Total + state.fastMoney.player2Total;
                   if (total >= 200) {
-                    soundManager?.playCelebration();
+                    store.playSound('celebration');
                   } else {
-                    soundManager?.playBuzzer();
+                    store.playSound('buzzer');
                   }
                 }}
                 className="host-btn-gold"
@@ -947,33 +945,25 @@ export default function HostPage() {
         {/* Quick Actions Bar */}
         <div className="fixed bottom-0 left-0 right-0 bg-black/90 border-t border-gold/20 p-2 flex gap-2 justify-center">
           <button
-            onClick={() => {
-              soundManager?.playDing();
-            }}
+            onClick={() => store.playSound('ding')}
             className="host-btn-sm bg-emerald/50 text-white rounded-lg"
           >
             Ding
           </button>
           <button
-            onClick={() => {
-              soundManager?.playBuzzer();
-            }}
+            onClick={() => store.playSound('buzzer')}
             className="host-btn-sm bg-red-700/50 text-white rounded-lg"
           >
             Buzzer
           </button>
           <button
-            onClick={() => {
-              soundManager?.playApplause();
-            }}
+            onClick={() => store.playSound('applause')}
             className="host-btn-sm bg-blue-700/50 text-white rounded-lg"
           >
             Applause
           </button>
           <button
-            onClick={() => {
-              soundManager?.playThemeIntro();
-            }}
+            onClick={() => store.playSound('intro')}
             className="host-btn-sm bg-gold/50 text-emerald-darker rounded-lg"
           >
             Intro
@@ -981,7 +971,6 @@ export default function HostPage() {
           <button
             onClick={() => {
               store.setCelebration(!state.celebration);
-              if (!state.celebration) soundManager?.playCelebration();
             }}
             className="host-btn-sm bg-gold/50 text-emerald-darker rounded-lg"
           >

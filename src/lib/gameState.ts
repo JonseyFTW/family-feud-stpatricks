@@ -422,6 +422,12 @@ class GameStore {
     });
   }
 
+  playSound(sound: string) {
+    this.update({
+      soundCommand: { sound, timestamp: Date.now() },
+    });
+  }
+
   // ---- Remote Session Sync ----
 
   async createSession(questions?: import('./types').Question[]): Promise<string> {

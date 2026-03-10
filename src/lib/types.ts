@@ -68,6 +68,7 @@ export interface GameState {
   winner: string | null;
   celebration: boolean;
   titleScreen: boolean;
+  soundCommand: { sound: string; timestamp: number } | null;
 }
 
 export const DEFAULT_FAST_MONEY: FastMoneyState = {
@@ -116,4 +117,5 @@ export const INITIAL_GAME_STATE: GameState = {
   winner: null,
   celebration: false,
   titleScreen: true,
+  soundCommand: null,
 };
