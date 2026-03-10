@@ -40,12 +40,12 @@ export default function LobbyPage() {
         {/* Title */}
         <div className="text-center mb-8">
           <h1 className="font-display text-5xl md:text-6xl text-gold mb-2" style={{ textShadow: '0 0 20px rgba(255,215,0,0.5), 0 4px 8px rgba(0,0,0,0.5)' }}>
-            FAMILY FEUD
+            MOORE MANOR
           </h1>
           <div className="flex items-center justify-center gap-2 mb-2">
             <span className="text-3xl">☘️</span>
             <h2 className="font-game text-xl md:text-2xl text-emerald-light" style={{ textShadow: '0 0 10px rgba(0,200,83,0.3)' }}>
-              St. Patrick&apos;s Day Edition
+              Friendly Feud Edition
             </h2>
             <span className="text-3xl">☘️</span>
           </div>

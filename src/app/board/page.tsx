@@ -97,12 +97,12 @@ function BoardContent() {
             className="font-display text-6xl md:text-8xl text-gold mb-4"
             style={{ textShadow: '0 0 30px rgba(255,215,0,0.5), 0 6px 12px rgba(0,0,0,0.5)' }}
           >
-            FAMILY FEUD
+            MOORE MANOR
           </h1>
           <div className="flex items-center justify-center gap-4 mb-6">
             <div className="h-1 w-24 bg-gradient-to-r from-transparent to-gold rounded-full" />
             <h2 className="font-game text-2xl md:text-4xl text-emerald-light" style={{ textShadow: '0 0 15px rgba(0,200,83,0.4)' }}>
-              St. Patrick&apos;s Day Edition
+              Friendly Feud Edition
             </h2>
             <div className="h-1 w-24 bg-gradient-to-l from-transparent to-gold rounded-full" />
           </div>
