@@ -9,6 +9,10 @@ class SoundManager {
     if (!this.audioContext) {
       this.audioContext = new AudioContext();
     }
+    // Always resume if suspended (browsers can re-suspend after inactivity)
+    if (this.audioContext.state === 'suspended') {
+      this.audioContext.resume();
+    }
     return this.audioContext;
   }
 
