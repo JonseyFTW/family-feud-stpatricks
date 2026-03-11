@@ -23,6 +23,19 @@ class SoundManager {
     if (ctx.state === 'suspended') {
       await ctx.resume();
     }
+    // Preload applause sound
+    this.loadSound('/sounds/applause.mp3', 'applause');
+  }
+
+  private async loadSound(url: string, name: string) {
+    try {
+      const response = await fetch(url);
+      const arrayBuffer = await response.arrayBuffer();
+      const audioBuffer = await this.getContext().decodeAudioData(arrayBuffer);
+      this.sounds.set(name, audioBuffer);
+    } catch (e) {
+      console.warn(`Failed to load sound: ${name}`, e);
+    }
   }
 
   private createOscillatorSound(
@@ -103,67 +116,16 @@ class SoundManager {
   }
 
   playApplause() {
-    const ctx = this.getContext();
-    const now = ctx.currentTime;
-    const duration = 3.0;
-
-    // Create multiple layered clap sources for realism
-    const clapCount = 8;
-    for (let c = 0; c < clapCount; c++) {
-      const clapRate = 6 + Math.random() * 4; // Each "person" claps at slightly different rate
-      const offset = Math.random() * 0.1; // Slight timing offset per person
-      const pan = (Math.random() * 2 - 1) * 0.8; // Spread across stereo field
-
-      const bufferSize = Math.floor(ctx.sampleRate * duration);
-      const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-      const data = buffer.getChannelData(0);
-
-      for (let i = 0; i < bufferSize; i++) {
-        const t = i / ctx.sampleRate;
-        // Each clap is a short burst of noise
-        const clapPhase = ((t + offset) * clapRate) % 1;
-        // Sharp attack, quick decay for each individual clap
-        const clapEnvelope = clapPhase < 0.15 ? Math.exp(-clapPhase * 25) : 0;
-        // Add slight randomness to each clap's intensity
-        const intensity = 0.5 + Math.random() * 0.5;
-        // Overall volume envelope: swell up, sustain, fade out
-        const overall = t < 0.3
-          ? t / 0.3  // Ramp up
-          : t > duration - 0.8
-            ? (duration - t) / 0.8  // Fade out
-            : 1.0;  // Sustain
-        data[i] = (Math.random() * 2 - 1) * clapEnvelope * intensity * overall;
-      }
-
+    const buffer = this.sounds.get('applause');
+    if (buffer) {
+      const ctx = this.getContext();
       const source = ctx.createBufferSource();
       source.buffer = buffer;
-
-      // Bandpass filter to shape noise into clap-like timbre
-      const filter = ctx.createBiquadFilter();
-      filter.type = 'bandpass';
-      filter.frequency.value = 1800 + Math.random() * 2400; // Vary per person
-      filter.Q.value = 0.4 + Math.random() * 0.4;
-
-      // High shelf to add crispness
-      const highShelf = ctx.createBiquadFilter();
-      highShelf.type = 'highshelf';
-      highShelf.frequency.value = 4000;
-      highShelf.gain.value = 3;
-
       const gain = ctx.createGain();
-      gain.gain.setValueAtTime(0.15, now);
-
-      // Stereo panning
-      const panner = ctx.createStereoPanner();
-      panner.pan.setValueAtTime(pan, now);
-
-      source.connect(filter);
-      filter.connect(highShelf);
-      highShelf.connect(gain);
-      gain.connect(panner);
-      panner.connect(ctx.destination);
-
-      source.start(now);
+      gain.gain.setValueAtTime(0.8, ctx.currentTime);
+      source.connect(gain);
+      gain.connect(ctx.destination);
+      source.start(ctx.currentTime);
     }
   }
 
