@@ -28,6 +28,13 @@ export default function HostPage() {
   const csvInputRef = useRef<HTMLInputElement>(null);
   const [csvImportMessage, setCsvImportMessage] = useState<string | null>(null);
 
+  // AI question generation state
+  const [aiCategory, setAiCategory] = useState('');
+  const [aiCount, setAiCount] = useState(3);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [showAiGenerator, setShowAiGenerator] = useState(false);
+
   // Fast money input state
   const [fmAnswer, setFmAnswer] = useState('');
   const [fmPoints, setFmPoints] = useState('');
@@ -269,6 +276,38 @@ export default function HostPage() {
     reader.readAsText(file);
   };
 
+  const handleAiGenerate = async () => {
+    if (!aiCategory.trim()) {
+      setAiError('Please enter a category');
+      return;
+    }
+    setIsGenerating(true);
+    setAiError(null);
+    try {
+      const response = await fetch('/api/generate-questions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ category: aiCategory.trim(), count: aiCount }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setAiError(data.error || 'Failed to generate questions');
+        return;
+      }
+      if (data.questions && data.questions.length > 0) {
+        setQuestions(prev => [...prev, ...data.questions]);
+        setAiCategory('');
+        setShowAiGenerator(false);
+        setCsvImportMessage(`AI generated ${data.questions.length} question${data.questions.length !== 1 ? 's' : ''}`);
+        setTimeout(() => setCsvImportMessage(null), 4000);
+      }
+    } catch {
+      setAiError('Failed to connect to AI service');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   if (!mounted) return null;
 
   if (!state.gameStarted) {
@@ -441,7 +480,45 @@ export default function HostPage() {
               </div>
             )}
 
-            <div className="grid grid-cols-3 gap-2 pt-2">
+            {/* AI Question Generator */}
+            {showAiGenerator && (
+              <div className="bg-purple-900/30 border border-purple-500/30 rounded-xl p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-purple-300 font-bold text-xs uppercase tracking-wider">🤖 AI Question Generator</span>
+                  <button onClick={() => { setShowAiGenerator(false); setAiError(null); }} className="text-white/40 hover:text-white text-sm">✕</button>
+                </div>
+                <input
+                  type="text"
+                  value={aiCategory}
+                  onChange={(e) => setAiCategory(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !isGenerating) handleAiGenerate(); }}
+                  placeholder="Enter a category (e.g. Summer vacation, Movies, Food...)"
+                  className="w-full px-3 py-2 bg-black/30 border border-purple-500/40 rounded-lg text-white placeholder-white/40 focus:outline-none focus:border-purple-400 text-sm"
+                />
+                <div className="flex gap-2 items-center">
+                  <label className="text-white/50 text-xs whitespace-nowrap">Questions:</label>
+                  <select
+                    value={aiCount}
+                    onChange={(e) => setAiCount(Number(e.target.value))}
+                    className="px-2 py-1 bg-black/30 border border-purple-500/40 rounded-lg text-white text-sm focus:outline-none"
+                  >
+                    {[1, 2, 3, 4, 5].map(n => (
+                      <option key={n} value={n}>{n}</option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={handleAiGenerate}
+                    disabled={isGenerating || !aiCategory.trim()}
+                    className="flex-1 py-2 bg-purple-600 text-white font-bold rounded-lg hover:bg-purple-500 transition-colors disabled:opacity-40 disabled:cursor-not-allowed text-sm"
+                  >
+                    {isGenerating ? '✨ Generating...' : '✨ Generate Questions'}
+                  </button>
+                </div>
+                {aiError && <p className="text-red-400 text-xs">{aiError}</p>}
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-2 pt-2">
               <button
                 onClick={() => csvInputRef.current?.click()}
                 className="host-btn-blue"
@@ -455,6 +532,14 @@ export default function HostPage() {
                 onChange={handleCSVUploadDirect}
                 className="hidden"
               />
+              <button
+                onClick={() => setShowAiGenerator(!showAiGenerator)}
+                className="host-btn-sm bg-purple-700/60 text-white rounded-lg py-2 font-bold hover:bg-purple-600/60 transition-colors"
+              >
+                🤖 AI Generate
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-2 pt-1">
               <button
                 onClick={() => setShowFastMoneySetup(true)}
                 className="host-btn-gold"
