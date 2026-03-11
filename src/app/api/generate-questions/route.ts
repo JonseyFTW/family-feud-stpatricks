@@ -38,7 +38,7 @@ IMPORTANT: Return ONLY valid JSON with no markdown formatting, no code blocks, n
 Make the questions fun and entertaining. Answers should be ordered from most popular (highest points) to least popular (lowest points). Each answer's points represent how many people out of 100 would give that answer.`;
 
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
