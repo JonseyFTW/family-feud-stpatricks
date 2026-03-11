@@ -54,8 +54,8 @@ Make the questions fun and entertaining. Answers should be ordered from most pop
 
     if (!response.ok) {
       const errorData = await response.text();
-      console.error('Gemini API error:', errorData);
-      return NextResponse.json({ error: 'Failed to generate questions' }, { status: 502 });
+      console.error('Gemini API error:', response.status, errorData);
+      return NextResponse.json({ error: `Gemini API error (${response.status}): ${errorData.slice(0, 200)}` }, { status: 502 });
     }
 
     const data = await response.json();
